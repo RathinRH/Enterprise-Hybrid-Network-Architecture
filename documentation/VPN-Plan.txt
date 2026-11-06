@@ -2,7 +2,7 @@ SITE-TO-SITE IPSEC VPN DESIGN PLAN
 ==================================
 
 PROJECT:
-Secure Multi-Site Enterprise Network Design & Simulation
+Enterprise Hybrid Network Architecture
 
 
 1. PURPOSE

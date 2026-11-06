@@ -347,7 +347,7 @@ Enterprise-Hybrid-Network-Architecture/
 ├── 📄 README.md
 │
 ├── 📂 packet-tracer/
-│   └── 🗂️  Secure-MultiSite-Enterprise-Network.pkt   ← Open in Packet Tracer
+│   └── 🗂️  Enterprise-Hybrid-Network-Architecture.pkt   ← Open in Packet Tracer
 │
 ├── 📂 configs/
 │   ├── 📂 routers/
@@ -411,7 +411,7 @@ Enterprise-Hybrid-Network-Architecture/
 git clone https://github.com/RathinRH/Enterprise-Hybrid-Network-Architecture.git
 
 # Open the simulation
-# → packet-tracer/Secure-MultiSite-Enterprise-Network.pkt
+# → packet-tracer/Enterprise-Hybrid-Network-Architecture.pkt
 ```
 
 **To add WFH support to the simulation**, follow the step-by-step guide:

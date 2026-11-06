@@ -2,7 +2,7 @@ NAT / PAT IMPLEMENTATION PLAN
 =============================
 
 PROJECT:
-Secure Multi-Site Enterprise Network Design & Simulation
+Enterprise Hybrid Network Architecture
 
 
 HQ NAT/PAT

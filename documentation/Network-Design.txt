@@ -1,7 +1,7 @@
-PROJECT: Secure Multi-Site Enterprise Network Design & Simulation
+PROJECT: Enterprise Hybrid Network Architecture
 
 1. PROJECT OBJECTIVE
-Design and implement a secure multi-site enterprise network connecting a Head Office and a Branch Office through an ISP network.
+Design and implement a ENTERPRISE HYBRID NETWORK ARCHITECTURE connecting a Head Office and a Branch Office through an ISP network.
 
 The project demonstrates:
 - Structured IPv4 addressing and subnetting

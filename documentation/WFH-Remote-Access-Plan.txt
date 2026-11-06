@@ -2,7 +2,7 @@ WFH REMOTE ACCESS DESIGN & IMPLEMENTATION PLAN
 ===============================================
 
 PROJECT:
-Secure Multi-Site Enterprise Network Design & Simulation
+Enterprise Hybrid Network Architecture
 (Enterprise Hybrid Network Architecture - WFH Extension)
 
 
@@ -10,7 +10,7 @@ Secure Multi-Site Enterprise Network Design & Simulation
 ==========
 
 This document defines the Work-From-Home (WFH) remote access
-architecture added to the Secure Multi-Site Enterprise Network.
+architecture added to the ENTERPRISE HYBRID NETWORK ARCHITECTURE.
 
 WFH employees must be able to:
 

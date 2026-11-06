@@ -2,7 +2,7 @@ WFH TESTING REPORT
 ==================
 
 PROJECT:
-Secure Multi-Site Enterprise Network Design & Simulation
+Enterprise Hybrid Network Architecture
 (Enterprise Hybrid Network Architecture - WFH Extension)
 
 

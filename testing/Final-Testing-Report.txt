@@ -1,9 +1,9 @@
-SECURE MULTI-SITE ENTERPRISE NETWORK
+ENTERPRISE HYBRID NETWORK ARCHITECTURE
 FINAL TESTING REPORT
 ====================================
 
 PROJECT:
-Secure Multi-Site Enterprise Network Design & Simulation
+Enterprise Hybrid Network Architecture
 
 
 1. VLAN CONFIGURATION

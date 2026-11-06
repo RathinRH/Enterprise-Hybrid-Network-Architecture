@@ -3,7 +3,7 @@
 ! ============================================================
 !
 ! PROJECT:
-! Secure Multi-Site Enterprise Network Design & Simulation
+! Enterprise Hybrid Network Architecture
 !
 ! STATUS:
 ! DESIGN ONLY
