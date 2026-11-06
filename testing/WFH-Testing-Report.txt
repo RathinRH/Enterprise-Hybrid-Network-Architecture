@@ -1,0 +1,225 @@
+WFH TESTING REPORT
+==================
+
+PROJECT:
+Secure Multi-Site Enterprise Network Design & Simulation
+(Enterprise Hybrid Network Architecture - WFH Extension)
+
+
+TEST ENVIRONMENT
+================
+
+WFH Device  : WFH-PC1 (172.16.1.10)
+Home Router : HOME-R1 (192.0.2.30 WAN / 172.16.1.1 LAN)
+VPN Tunnel  : GRE Tunnel10 (10.30.0.2 -> 10.30.0.1)
+HQ Headend  : HQ-R1 (203.0.113.2 WAN / 10.30.0.1 Tunnel)
+
+
+TEST 1: GRE TUNNEL STATUS
+==========================
+
+STATUS: PASS
+
+Command:
+ show interfaces Tunnel10
+
+Expected Result on HQ-R1:
+ Tunnel10 is up, line protocol is up
+ Internet address is 10.30.0.1/30
+ Tunnel source 203.0.113.2 (GigabitEthernet0/1)
+ Tunnel destination 192.0.2.30
+
+Expected Result on HOME-R1:
+ Tunnel10 is up, line protocol is up
+ Internet address is 10.30.0.2/30
+ Tunnel source 192.0.2.30 (GigabitEthernet0/0)
+ Tunnel destination 203.0.113.2
+
+
+TEST 2: WFH TUNNEL CONNECTIVITY
+=================================
+
+STATUS: PASS
+
+Source      : WFH-PC1 (172.16.1.10)
+Destination : HQ-R1 Tunnel IP (10.30.0.1)
+
+Command:
+ ping 10.30.0.1
+
+Expected:
+ Reply from 10.30.0.1 - SUCCESS
+ (Confirms the GRE tunnel is passing traffic)
+
+
+TEST 3: WFH TO HQ INTERNAL SERVER
+====================================
+
+STATUS: PASS
+
+Source      : WFH-PC1 (172.16.1.10)
+Destination : HQ-SRV1 (10.10.100.10)
+
+Ping Test:
+ ping 10.10.100.10
+ Expected: Reply from 10.10.100.10 - SUCCESS
+
+HTTP Test:
+ Browser -> http://10.10.100.10
+ Expected: Intranet web page loads - SUCCESS
+
+This test verifies:
+ WFH NAT -> GRE Tunnel -> HQ-R1 routing -> VLAN 100 -> HQ-SRV1
+
+
+TEST 4: WFH DNS RESOLUTION
+============================
+
+STATUS: PASS
+
+Source      : WFH-PC1 (172.16.1.10)
+DNS Server  : 10.10.100.10
+Query       : intranet.enterprise.local
+
+Command:
+ nslookup intranet.enterprise.local
+
+Expected:
+ Server: 10.10.100.10
+ Name: intranet.enterprise.local
+ Address: 10.10.100.10
+
+This test verifies that WFH employees can resolve internal
+corporate domain names over the VPN tunnel.
+
+
+TEST 5: WFH TO HQ INTERNAL WEB (BY NAME)
+==========================================
+
+STATUS: PASS
+
+Source      : WFH-PC1
+URL         : http://intranet.enterprise.local
+
+Expected:
+ DNS resolves to 10.10.100.10
+ HTTP page loads successfully
+
+Verifies: DNS + GRE Tunnel + Inter-VLAN routing + HTTP
+
+
+TEST 6: WFH TO HQ HR VLAN
+============================
+
+STATUS: PASS
+
+Source      : WFH-PC1 (172.16.1.10)
+Destination : HQ-HR-PC1 (10.10.10.x)
+
+Command:
+ ping 10.10.10.10
+
+Expected: Reply - SUCCESS
+(WFH employees allowed to reach HR VLAN)
+
+
+TEST 7: WFH TO HQ FINANCE (SECURITY POLICY - BLOCKED)
+=======================================================
+
+STATUS: PASS (BLOCKED AS EXPECTED)
+
+Source      : WFH-PC1 (172.16.1.10)
+Destination : HQ-FIN-PC1 (10.10.20.x)
+
+Command:
+ ping 10.10.20.10
+
+Expected: Request timed out - BLOCKED
+Reason  : ACL 110 on HQ-R1 G0/0.20 (OUT) denies 172.16.1.0/24
+          to 10.10.20.0/26 (Finance VLAN)
+
+Verification:
+ show access-lists 110
+ (Confirm hit counter increments on the deny statement)
+
+
+TEST 8: WFH TO BRANCH OFFICE
+==============================
+
+STATUS: PASS
+
+Source      : WFH-PC1 (172.16.1.10)
+Destination : BR-SALES-PC1 (10.20.50.x)
+
+Command:
+ ping 10.20.50.10
+
+Expected: Reply - SUCCESS
+(WFH employees can reach Branch Office networks)
+
+
+TEST 9: WFH TO PUBLIC SERVER
+==============================
+
+STATUS: PASS
+
+Source      : WFH-PC1 (172.16.1.10)
+Destination : PUBLIC-SRV1 (192.0.2.10)
+
+Command:
+ ping 192.0.2.10
+
+Expected: Reply - SUCCESS
+(WFH home NAT translates traffic through HOME-R1 WAN)
+
+
+TEST 10: HQ-R1 ROUTING TABLE VERIFICATION
+===========================================
+
+STATUS: PASS
+
+Command on HQ-R1:
+ show ip route
+
+Expected entries:
+ S 172.16.1.0/24 via 10.30.0.2 (static route to WFH LAN)
+ C 10.30.0.0/30 is directly connected, Tunnel10
+
+Confirms HQ-R1 knows how to reach WFH home network.
+
+
+TEST 11: HOME-R1 ROUTING TABLE VERIFICATION
+=============================================
+
+STATUS: PASS
+
+Command on HOME-R1:
+ show ip route
+
+Expected entries:
+ S 10.10.10.0/26  via 10.30.0.1
+ S 10.10.20.0/26  via 10.30.0.1
+ S 10.10.30.0/25  via 10.30.0.1
+ S 10.10.40.0/27  via 10.30.0.1
+ S 10.10.100.0/28 via 10.30.0.1
+ C 10.30.0.0/30   directly connected, Tunnel10
+ C 172.16.1.0/24  directly connected, GigabitEthernet0/1
+ S 0.0.0.0/0      via 192.0.2.1 (default to ISP)
+
+
+FINAL WFH TEST SUMMARY
+========================
+
+PASS - GRE Tunnel Established (Tunnel10 UP)
+PASS - WFH Tunnel Connectivity
+PASS - WFH to HQ Internal Server (ping + HTTP)
+PASS - WFH DNS Resolution (intranet.enterprise.local)
+PASS - WFH Internal Web by Name
+PASS - WFH to HQ HR VLAN
+PASS - WFH to Finance BLOCKED (ACL 110 enforced)
+PASS - WFH to Branch Office
+PASS - WFH to Public Server
+PASS - HQ-R1 routing table includes WFH route
+PASS - HOME-R1 routing table includes all HQ routes
+(no newline at end of file)
+

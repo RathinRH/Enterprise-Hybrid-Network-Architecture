@@ -1,0 +1,82 @@
+enable
+configure terminal
+
+!
+! =====================================================
+! HQ-R1 GRE TUNNEL CONFIGURATION FOR WFH EMPLOYEES
+! =====================================================
+!
+! This configuration ADDS to the existing HQ-R1 base config.
+! Apply after the base HQ-R1.txt configuration is already running.
+!
+! GRE (Generic Routing Encapsulation) tunnels are used to simulate
+! the Remote Access VPN connection from WFH employees to HQ.
+!
+! In a production environment, this would use IPsec-encrypted
+! Remote Access VPN (EasyVPN or SSL VPN). In Cisco Packet Tracer,
+! GRE tunnels provide equivalent connectivity simulation.
+!
+! Tunnel Source : 203.0.113.2  (HQ-R1 WAN - VPN Headend)
+! Tunnel Dest   : 192.0.2.30   (HOME-R1 WAN - WFH Employee)
+! Tunnel IP     : 10.30.0.1/30 (Virtual Tunnel - HQ End)
+!
+
+!
+! GRE TUNNEL INTERFACE - HQ END
+!
+
+interface Tunnel10
+ description GRE_VPN_TUNNEL_TO_WFH_HOME-R1
+ ip address 10.30.0.1 255.255.255.252
+ tunnel source GigabitEthernet0/1
+ tunnel destination 192.0.2.30
+ no shutdown
+exit
+
+!
+! STATIC ROUTE - HQ to WFH Home Network
+! Route WFH employee LAN traffic (172.16.1.0/24) over the GRE tunnel
+!
+
+ip route 172.16.1.0 255.255.255.0 10.30.0.2
+
+!
+! ACL UPDATE - PERMIT WFH EMPLOYEE ACCESS
+!
+! WFH employees (172.16.1.0/24) are permitted to reach:
+!  - HQ internal server  (10.10.100.0/28)  PERMITTED
+!  - HQ HR VLAN          (10.10.10.0/26)   PERMITTED
+!  - HQ Development VLAN (10.10.30.0/25)   PERMITTED
+!  - HQ IT VLAN          (10.10.40.0/27)   PERMITTED
+!  - Branch networks     (10.20.0.0/16)    PERMITTED
+!
+! WFH employees (172.16.1.0/24) are BLOCKED from:
+!  - HQ Finance VLAN     (10.10.20.0/26)   BLOCKED
+!    (Same policy as Branch Sales - Finance is restricted)
+!
+
+no access-list 110
+
+!
+! DENY WFH to Finance (same policy as Branch Sales restriction)
+!
+access-list 110 deny ip 10.20.50.0 0.0.0.63 10.10.20.0 0.0.0.63
+access-list 110 deny ip 172.16.1.0 0.0.0.255 10.10.20.0 0.0.0.63
+
+!
+! PERMIT ALL OTHER TRAFFIC
+!
+access-list 110 permit ip any any
+
+!
+! ACL REMAINS APPLIED ON FINANCE VLAN INTERFACE
+!
+
+interface GigabitEthernet0/0.20
+ description FINANCE_GATEWAY_WITH_SECURITY_ACL
+ ip access-group 110 out
+exit
+
+end
+write memory
+

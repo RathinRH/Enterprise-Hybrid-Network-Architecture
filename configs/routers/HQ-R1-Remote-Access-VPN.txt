@@ -1,0 +1,123 @@
+enable
+configure terminal
+
+!
+! =====================================================
+! HQ-R1 REMOTE ACCESS VPN DESIGN
+! (IPsec / EasyVPN - Full Production Design)
+! =====================================================
+!
+! NOTE: This configuration represents the full production-grade
+! Remote Access VPN design. These commands require the SecurityK9
+! technology package to be active on the router IOS.
+!
+! In Cisco Packet Tracer, the SecurityK9 package may not be enabled
+! on the 2911 IOS image. In that case, GRE tunnels (HQ-R1-GRE-WFH.txt)
+! are used to simulate equivalent WFH connectivity.
+!
+! This design CAN be fully implemented in:
+!  - GNS3
+!  - EVE-NG
+!  - Cisco CML
+!  - Physical Cisco ISR hardware with SecurityK9 enabled
+!
+
+!
+! STEP 1: CREATE LOCAL WFH USER ACCOUNTS
+!
+
+username wfh-user1 privilege 1 secret Wfh@12345
+username wfh-user2 privilege 1 secret Wfh@12345
+
+!
+! STEP 2: CREATE VPN ADDRESS POOL FOR REMOTE WORKERS
+! Addresses assigned to WFH employees when they connect
+!
+
+ip local pool WFH-REMOTE-POOL 10.30.0.10 10.30.0.50
+
+!
+! STEP 3: IKE / ISAKMP PHASE 1 POLICY (Remote Access)
+!
+
+crypto isakmp policy 20
+ encryption aes
+ hash sha
+ authentication pre-share
+ group 2
+ lifetime 86400
+exit
+
+!
+! STEP 4: PRE-SHARED KEY FOR WFH CLIENTS
+! WFH clients must have this key configured in their VPN client
+!
+
+crypto isakmp key VPN@Key123 address 0.0.0.0 0.0.0.0
+
+!
+! STEP 5: IPSEC TRANSFORM SET FOR REMOTE ACCESS TRAFFIC
+!
+
+crypto ipsec transform-set WFH-TRANSFORM esp-aes esp-sha-hmac
+ mode tunnel
+exit
+
+!
+! STEP 6: ISAKMP PROFILE FOR REMOTE USERS
+!
+
+crypto isakmp profile WFH-PROFILE
+ match identity group WFH-REMOTE-USERS
+ client authentication list WFH-AUTH-LIST
+ isakmp authorization list WFH-AUTHZ-LIST
+ client configuration address respond
+exit
+
+!
+! STEP 7: DYNAMIC CRYPTO MAP FOR REMOTE ACCESS
+! (Dynamic because WFH clients have dynamic/unknown source IPs)
+!
+
+crypto dynamic-map WFH-DYNAMIC-MAP 10
+ set transform-set WFH-TRANSFORM
+ set isakmp-profile WFH-PROFILE
+ reverse-route
+exit
+
+!
+! STEP 8: BIND DYNAMIC MAP TO STATIC CRYPTO MAP
+!
+
+crypto map ENTERPRISE-VPN 20 ipsec-isakmp dynamic WFH-DYNAMIC-MAP
+
+!
+! STEP 9: APPLY CRYPTO MAP TO WAN INTERFACE
+!
+
+interface GigabitEthernet0/1
+ description WAN_TO_ISP-R1_VPN_HEADEND
+ crypto map ENTERPRISE-VPN
+exit
+
+!
+! STEP 10: AAA CONFIGURATION FOR WFH USER AUTHENTICATION
+!
+
+aaa new-model
+aaa authentication login WFH-AUTH-LIST local
+aaa authorization network WFH-AUTHZ-LIST local
+
+!
+! STEP 11: VERIFICATION COMMANDS
+!
+! show crypto isakmp sa
+! show crypto ipsec sa
+! show crypto session
+! show ip local pool WFH-REMOTE-POOL
+! show crypto map
+!
+
+end
+write memory
+

@@ -1,0 +1,260 @@
+PACKET TRACER STEP-BY-STEP: ADDING WFH TO YOUR .PKT FILE
+==========================================================
+
+PROJECT:
+Enterprise Hybrid Network Architecture
+(Work-From-Home Extension)
+
+
+OVERVIEW
+========
+
+This guide walks you through every click and command needed to
+add the Work-From-Home (WFH) zone to your existing Packet Tracer
+simulation file.
+
+The WFH zone uses a GRE (Generic Routing Encapsulation) tunnel
+to simulate a Remote Access VPN connection from a home employee
+to the HQ corporate network.
+
+Time Required: ~1 to 2 hours
+
+
+PRE-REQUISITE
+=============
+
+Your existing .pkt file must already have:
+ - HQ-R1 configured and running
+ - ISP-R1 configured and running
+ - PUBLIC-SRV1 connected to ISP-R1 G0/1 (192.0.2.0/24 network)
+
+If your ISP-R1 G0/1 currently connects DIRECTLY to PUBLIC-SRV1
+with a point-to-point cable, you will need to add a switch to
+share that segment with HOME-R1 (see Step 2).
+
+
+STEP 1: OPEN YOUR PKT FILE
+===========================
+
+1. Open Cisco Packet Tracer
+2. File -> Open -> Select your .pkt file
+3. The existing topology should load
+
+
+STEP 2: ADD A SWITCH TO THE ISP PUBLIC SEGMENT
+================================================
+
+If ISP-R1 G0/1 is cabled directly to PUBLIC-SRV1, do this:
+
+A. Add a new Cisco 2960 switch to the canvas
+   - Label it: ISP-SW1
+
+B. Delete the cable between ISP-R1 G0/1 and PUBLIC-SRV1
+
+C. Cable ISP-R1 G0/1 -> ISP-SW1 (Copper Straight-Through)
+   Use any available port on ISP-SW1
+
+D. Cable ISP-SW1 -> PUBLIC-SRV1 (Copper Straight-Through)
+
+NOTE: If you already have a switch on the ISP segment, skip
+this step and just connect HOME-R1 to that switch.
+
+
+STEP 3: ADD NEW DEVICES
+========================
+
+A. Add a Cisco 2911 Router to the canvas
+   - Label it: HOME-R1
+   - Place it visually away from the main topology
+     (e.g., top-right corner labeled "WFH Zone")
+
+B. Add two PC-PT end devices
+   - Label them: WFH-PC1 and WFH-PC2
+   - Place them near HOME-R1
+
+
+STEP 4: CABLE THE WFH ZONE
+============================
+
+A. Cable HOME-R1 G0/0 -> ISP-SW1
+   (Copper Straight-Through - this is the HOME-R1 WAN link)
+   HOME-R1 G0/0 connects to the simulated public internet
+
+B. Cable HOME-R1 G0/1 -> WFH-PC1
+   (Copper Straight-Through - this is the home LAN)
+
+C. Cable HOME-R1 G0/1 -> WFH-PC2
+   OR add a small switch between HOME-R1 G0/1, WFH-PC1, WFH-PC2
+
+NOTE: If using a switch for WFH LAN:
+ - Add a 2960 switch, label it HOME-SW1
+ - Cable HOME-R1 G0/1 -> HOME-SW1
+ - Cable HOME-SW1 -> WFH-PC1
+ - Cable HOME-SW1 -> WFH-PC2
+
+
+STEP 5: CONFIGURE HOME-R1
+===========================
+
+A. Click HOME-R1 -> CLI tab
+
+B. Press ENTER to get the prompt
+
+C. Copy and paste the ENTIRE contents of:
+   configs/routers/HOME-R1.txt
+
+   NOTE: When prompted "Would you like to generate RSA keys?"
+   type YES and press ENTER
+
+D. After pasting, verify:
+   - Type: show ip interface brief
+   - G0/0 should show 192.0.2.30 (UP/UP)
+   - G0/1 should show 172.16.1.1  (UP/UP)
+   - Tunnel10 should show 10.30.0.2 (UP/UP)
+
+
+STEP 6: CONFIGURE HQ-R1 GRE TUNNEL
+=====================================
+
+A. Click HQ-R1 -> CLI tab
+
+B. Copy and paste the contents of:
+   configs/routers/HQ-R1-GRE-WFH.txt
+
+C. After pasting, verify:
+   - Type: show interfaces Tunnel10
+   - Should show: Tunnel10 is up, line protocol is up
+   - Type: show ip route
+   - Should show: S 172.16.1.0/24 [1/0] via 10.30.0.2
+
+
+STEP 7: CONFIGURE WFH-PC1
+===========================
+
+A. Click WFH-PC1 -> Desktop tab -> IP Configuration
+
+B. Set:
+   IP Address   : 172.16.1.10
+   Subnet Mask  : 255.255.255.0
+   Default GW   : 172.16.1.1
+   DNS Server   : 10.10.100.10
+
+
+STEP 8: CONFIGURE WFH-PC2
+===========================
+
+A. Click WFH-PC2 -> Desktop tab -> IP Configuration
+
+B. Set:
+   IP Address   : 172.16.1.11
+   Subnet Mask  : 255.255.255.0
+   Default GW   : 172.16.1.1
+   DNS Server   : 10.10.100.10
+
+
+STEP 9: VERIFY PUBLIC-SRV1 IS STILL WORKING
+=============================================
+
+A. Click PUBLIC-SRV1 -> Desktop -> IP Configuration
+   Make sure it still has:
+   IP         : 192.0.2.10
+   Mask       : 255.255.255.0
+   Gateway    : 192.0.2.1
+   (If you re-cabled through a switch, verify these are unchanged)
+
+B. Ping from HQ-HR-PC1 to 192.0.2.10 -> should still work
+
+
+STEP 10: TEST WFH CONNECTIVITY
+================================
+
+TEST A: Ping from WFH-PC1 to HQ-R1 tunnel IP
+
+   WFH-PC1 -> Desktop -> Command Prompt
+   ping 10.30.0.1
+   Expected: Reply from 10.30.0.1
+
+TEST B: Ping from WFH-PC1 to HQ Internal Server
+
+   ping 10.10.100.10
+   Expected: Reply from 10.10.100.10
+
+TEST C: HTTP from WFH-PC1 to Internal Web Server
+
+   WFH-PC1 -> Desktop -> Web Browser
+   URL: http://10.10.100.10
+   Expected: Intranet page loads
+
+TEST D: DNS from WFH-PC1
+
+   WFH-PC1 -> Desktop -> Command Prompt
+   nslookup intranet.enterprise.local
+   Expected: Address: 10.10.100.10
+
+TEST E: HTTP by name
+
+   WFH-PC1 -> Desktop -> Web Browser
+   URL: http://intranet.enterprise.local
+   Expected: Intranet page loads
+
+TEST F: Ping HQ HR VLAN
+
+   ping 10.10.10.10 (HQ-HR-PC1)
+   Expected: Reply from 10.10.10.10
+
+TEST G: Ping HQ Finance (should be BLOCKED)
+
+   ping 10.10.20.10 (HQ-FIN-PC1)
+   Expected: Request timed out (ACL 110 blocking)
+
+TEST H: Ping Branch Office
+
+   ping 10.20.50.10 (BR-SALES-PC1)
+   Expected: Reply from 10.20.50.10
+
+
+TROUBLESHOOTING
+===============
+
+PROBLEM: Tunnel10 shows down
+SOLUTION:
+ - Check HOME-R1 G0/0 and HQ-R1 G0/1 are UP
+ - Verify the tunnel destination IP matches the WAN IP
+ - Run: show ip interface brief on both routers
+ - Ping 192.0.2.30 from HQ-R1 -> must succeed before tunnel works
+
+PROBLEM: WFH-PC1 can ping tunnel but not HQ networks
+SOLUTION:
+ - Check static routes on HOME-R1 (show ip route)
+ - Verify HQ-R1 has route to 172.16.1.0/24 (show ip route)
+
+PROBLEM: Finance ping gets through (not blocked)
+SOLUTION:
+ - Verify ACL 110 is applied to G0/0.20 OUT on HQ-R1
+ - Run: show access-lists 110 (check deny statement exists)
+ - Re-apply: interface G0/0.20 -> ip access-group 110 out
+
+PROBLEM: DNS not working from WFH-PC1
+SOLUTION:
+ - Confirm DNS Server is set to 10.10.100.10 on WFH-PC1
+ - Ping 10.10.100.10 first to confirm connectivity
+ - Check HQ-SRV1 has DNS service running and record for
+   intranet.enterprise.local -> 10.10.100.10
+
+
+SAVE YOUR WORK
+==============
+
+After all tests pass:
+ File -> Save (Ctrl+S)
+
+The updated .pkt file now represents a complete
+Enterprise Hybrid Network Architecture with:
+ - Head Office (HQ)
+ - Remote Branch Office
+ - Work-From-Home Employees
+ - Site-to-Site VPN design (documented)
+ - Remote Access VPN (GRE simulated)
+ - Full security policies
+(no newline at end of file)
+

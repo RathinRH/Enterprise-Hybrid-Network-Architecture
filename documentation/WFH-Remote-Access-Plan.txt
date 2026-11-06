@@ -1,0 +1,301 @@
+WFH REMOTE ACCESS DESIGN & IMPLEMENTATION PLAN
+===============================================
+
+PROJECT:
+Secure Multi-Site Enterprise Network Design & Simulation
+(Enterprise Hybrid Network Architecture - WFH Extension)
+
+
+1. PURPOSE
+==========
+
+This document defines the Work-From-Home (WFH) remote access
+architecture added to the Secure Multi-Site Enterprise Network.
+
+WFH employees must be able to:
+
+ - Connect securely to the HQ corporate network from home
+ - Access internal servers  (HQ-SRV1, DNS, HTTP)
+ - Communicate with HQ department VLANs (HR, Dev, IT)
+ - Be subject to the same security policies as Branch users
+ - Be BLOCKED from accessing HQ Finance (same ACL policy)
+
+
+2. WFH TOPOLOGY
+===============
+
+                   WFH-PC1
+                172.16.1.10
+                     |
+                 HOME-R1
+              172.16.1.1 (LAN)
+              192.0.2.30  (WAN - simulated public IP)
+                     |
+                     | (GRE Tunnel over ISP cloud)
+                     |
+                  ISP-R1
+                 192.0.2.1
+                     |
+                  HQ-R1
+              203.0.113.2  (WAN - VPN Headend)
+              10.30.0.1    (Tunnel10 - virtual VPN address)
+                     |
+              HQ Internal Networks
+              VLANs 10,20,30,40,99,100
+
+
+3. NEW DEVICES ADDED
+====================
+
+HOME-R1
+ Type    : Cisco 2911 Router
+ Role    : WFH Home Router / VPN Client Gateway
+ LAN IP  : 172.16.1.1 / 255.255.255.0
+ WAN IP  : 192.0.2.30 / 255.255.255.0 (connected to ISP-R1 G0/1)
+ Tunnel  : 10.30.0.2 / 255.255.255.252
+
+WFH-PC1
+ Type    : PC-PT
+ Role    : Work-From-Home Employee
+ Network : VLAN 1 (home LAN, untagged)
+ IP      : 172.16.1.10 / 255.255.255.0
+ Gateway : 172.16.1.1 (HOME-R1 LAN)
+ DNS     : 10.10.100.10 (routed over GRE tunnel to HQ DNS)
+
+WFH-PC2 (optional second WFH employee)
+ Type    : PC-PT
+ Role    : Work-From-Home Employee
+ IP      : 172.16.1.11 / 255.255.255.0
+ Gateway : 172.16.1.1
+
+
+4. IP ADDRESSING - WFH ZONE
+============================
+
+HOME LAN NETWORK
+ Network : 172.16.1.0/24
+ Gateway : 172.16.1.1 (HOME-R1 LAN)
+ WFH-PC1 : 172.16.1.10
+ WFH-PC2 : 172.16.1.11
+
+HOME-R1 WAN (Simulated Public IP)
+ Network : 192.0.2.0/24 (shared ISP public segment)
+ HOME-R1 : 192.0.2.30
+ Gateway : 192.0.2.1 (ISP-R1)
+
+GRE TUNNEL ADDRESSES (Simulated VPN Tunnel Link)
+ Network : 10.30.0.0/30
+ HQ-R1   : 10.30.0.1 (Tunnel10 - HQ end)
+ HOME-R1 : 10.30.0.2 (Tunnel10 - WFH end)
+
+
+5. VPN IMPLEMENTATION - PACKET TRACER (GRE TUNNEL)
+====================================================
+
+Since Cisco Packet Tracer does not support IPsec Remote Access
+VPN (EasyVPN / SecurityK9) on the 2911 IOS image, the WFH
+connectivity is simulated using GRE (Generic Routing Encapsulation)
+tunnels.
+
+GRE tunnels provide:
+ - Point-to-point virtual link between HOME-R1 and HQ-R1
+ - Routing of WFH LAN traffic over the simulated internet
+ - Equivalent connectivity demonstration to Remote Access VPN
+
+GRE Tunnel Parameters:
+
+ HQ-R1  Tunnel10:
+  Source      : GigabitEthernet0/1 (203.0.113.2)
+  Destination : 192.0.2.30
+  IP Address  : 10.30.0.1/30
+
+ HOME-R1 Tunnel10:
+  Source      : GigabitEthernet0/0 (192.0.2.30)
+  Destination : 203.0.113.2
+  IP Address  : 10.30.0.2/30
+
+
+6. VPN IMPLEMENTATION - PRODUCTION (IPSEC REMOTE ACCESS)
+==========================================================
+
+For a full production or GNS3/EVE-NG implementation, the following
+IPsec Remote Access VPN design applies:
+
+VPN Type:
+ IPsec Remote Access (EasyVPN / Client-to-Site)
+
+VPN Headend:
+ HQ-R1
+ 203.0.113.2
+
+WFH Client Address Pool:
+ 10.30.0.10 - 10.30.0.50 / 255.255.255.0
+
+IKE Phase 1:
+ Encryption   : AES
+ Hash         : SHA
+ Auth         : Pre-Shared Key
+ DH Group     : 2
+ Lifetime     : 86400
+
+IPsec Phase 2:
+ Transform    : ESP-AES + ESP-SHA-HMAC
+ Mode         : Tunnel
+
+Authentication:
+ Local AAA user database on HQ-R1
+ Users: wfh-user1, wfh-user2
+
+Detailed configuration is available in:
+ configs/routers/HQ-R1-Remote-Access-VPN.txt
+
+
+7. SECURITY POLICY - WFH EMPLOYEES
+=====================================
+
+WFH employees (172.16.1.0/24) are subject to the following
+access policy (enforced by ACL 110 on HQ-R1):
+
+PERMITTED:
+ WFH -> HQ HR Network       (10.10.10.0/26)   ALLOW
+ WFH -> HQ Development      (10.10.30.0/25)   ALLOW
+ WFH -> HQ IT               (10.10.40.0/27)   ALLOW
+ WFH -> HQ Internal Server  (10.10.100.0/28)  ALLOW
+ WFH -> Branch Networks     (10.20.0.0/16)    ALLOW
+
+BLOCKED:
+ WFH -> HQ Finance Network  (10.10.20.0/26)   DENY
+ (Finance is restricted - same policy as Branch Sales)
+
+Updated ACL 110 is in:
+ configs/routers/HQ-R1-GRE-WFH.txt
+
+
+8. ROUTING DESIGN - WFH
+=========================
+
+HQ-R1 STATIC ROUTE:
+ Destination : 172.16.1.0/24 (WFH home LAN)
+ Next Hop    : 10.30.0.2 (HOME-R1 tunnel end)
+
+HOME-R1 STATIC ROUTES:
+ Destination : 10.10.10.0/26   Next Hop: 10.30.0.1 (HQ tunnel)
+ Destination : 10.10.20.0/26   Next Hop: 10.30.0.1
+ Destination : 10.10.30.0/25   Next Hop: 10.30.0.1
+ Destination : 10.10.40.0/27   Next Hop: 10.30.0.1
+ Destination : 10.10.99.0/28   Next Hop: 10.30.0.1
+ Destination : 10.10.100.0/28  Next Hop: 10.30.0.1
+ Destination : 10.20.50.0/26   Next Hop: 10.30.0.1
+ Destination : 10.20.60.0/27   Next Hop: 10.30.0.1
+
+
+9. NAT ON HOME-R1
+==================
+
+HOME-R1 performs NAT Overload for general internet traffic from the
+WFH home LAN. Traffic destined for HQ corporate networks is routed
+directly over the GRE tunnel (bypassing NAT).
+
+NAT Inside  : GigabitEthernet0/1 (172.16.1.1 - home LAN)
+NAT Outside : GigabitEthernet0/0 (192.0.2.30 - WAN)
+Access List : 10 (permits 172.16.1.0/24)
+
+
+10. TESTING - WFH CONNECTIVITY
+================================
+
+Test 1: WFH to HQ Internal Server
+ Source      : WFH-PC1 (172.16.1.10)
+ Destination : HQ-SRV1 (10.10.100.10)
+ Protocol    : ICMP (ping) + HTTP
+ Expected    : SUCCESS
+
+Test 2: WFH to HQ HR Network
+ Source      : WFH-PC1 (172.16.1.10)
+ Destination : HQ-HR-PC1
+ Protocol    : ICMP
+ Expected    : SUCCESS
+
+Test 3: WFH to HQ Finance Network (BLOCKED)
+ Source      : WFH-PC1 (172.16.1.10)
+ Destination : HQ-FIN-PC1
+ Protocol    : ICMP
+ Expected    : BLOCKED (ACL 110)
+
+Test 4: WFH DNS Resolution
+ Source      : WFH-PC1 (172.16.1.10)
+ DNS Server  : 10.10.100.10
+ Query       : intranet.enterprise.local
+ Expected    : Resolves to 10.10.100.10
+
+Test 5: WFH to Branch Sales
+ Source      : WFH-PC1 (172.16.1.10)
+ Destination : BR-SALES-PC1 (10.20.50.x)
+ Protocol    : ICMP
+ Expected    : SUCCESS
+
+Test 6: GRE Tunnel Verification
+ Command     : show interfaces Tunnel10
+ Expected    : Tunnel10 is up, line protocol is up
+
+Test 7: Routing Verification
+ Command     : show ip route
+ Expected    : Routes to 172.16.1.0 via Tunnel10 on HQ-R1
+
+
+11. PACKET TRACER STEP-BY-STEP INSTRUCTIONS
+=============================================
+
+Follow these steps to add WFH to the existing .pkt file:
+
+STEP 1 - ADD DEVICES
+ - Add a Cisco 2911 Router, label it HOME-R1
+ - Add 1-2 PC-PT devices, label WFH-PC1 and WFH-PC2
+ - Place them visually outside the main topology (e.g., top-right)
+
+STEP 2 - CABLE HOME-R1
+ - Connect HOME-R1 G0/1 to WFH-PC1 (Copper Straight-Through)
+ - Connect HOME-R1 G0/0 to ISP-R1 G0/1 (same switch/segment as PUBLIC-SRV1)
+   OR use a switch to hub the ISP public segment:
+   ISP-R1 G0/1 -> switch -> HOME-R1, PUBLIC-SRV1
+
+STEP 3 - CONFIGURE HOME-R1
+ - Open HOME-R1 CLI
+ - Paste the configuration from: configs/routers/HOME-R1.txt
+
+STEP 4 - CONFIGURE HQ-R1 GRE TUNNEL
+ - Open HQ-R1 CLI
+ - Paste the configuration from: configs/routers/HQ-R1-GRE-WFH.txt
+
+STEP 5 - CONFIGURE WFH-PC1
+ - IP Address  : 172.16.1.10
+ - Subnet Mask : 255.255.255.0
+ - Gateway     : 172.16.1.1
+ - DNS Server  : 10.10.100.10
+
+STEP 6 - CONFIGURE WFH-PC2 (optional)
+ - IP Address  : 172.16.1.11
+ - Subnet Mask : 255.255.255.0
+ - Gateway     : 172.16.1.1
+ - DNS Server  : 10.10.100.10
+
+STEP 7 - VERIFY
+ - ping 10.10.100.10 from WFH-PC1 (should succeed)
+ - ping 10.10.20.1  from WFH-PC1 (should be blocked)
+ - Run: show interfaces Tunnel10 on both HQ-R1 and HOME-R1
+ - Run: show ip route on HQ-R1 (check for 172.16.1.0 route)
+
+
+12. PROJECT STATUS - WFH
+==========================
+
+WFH Topology Design          : COMPLETED
+WFH IP Addressing            : COMPLETED
+HOME-R1 Configuration        : COMPLETED
+GRE Tunnel (Packet Tracer)   : COMPLETED
+Remote Access VPN Design     : COMPLETED (documented)
+WFH Security Policy (ACL)    : COMPLETED
+WFH Routing Design           : COMPLETED
+Packet Tracer Implementation : READY TO APPLY TO .PKT FILE
+(no newline at end of file)
+

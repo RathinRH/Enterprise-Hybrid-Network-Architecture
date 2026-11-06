@@ -1,0 +1,108 @@
+enable
+configure terminal
+
+hostname HOME-R1
+
+no ip domain-lookup
+service password-encryption
+enable secret Cisco@12345
+
+banner motd # WFH HOME ROUTER - AUTHORIZED USE ONLY #
+
+!
+! LOCAL ADMIN ACCOUNT
+!
+
+username netadmin privilege 15 secret Admin@12345
+
+!
+! SSH MANAGEMENT
+!
+
+ip domain-name enterprise.local
+crypto key generate rsa modulus 1024
+ip ssh version 2
+
+line console 0
+ login local
+ exec-timeout 10 0
+exit
+
+line vty 0 4
+ login local
+ transport input ssh
+ exec-timeout 10 0
+exit
+
+!
+! WAN INTERFACE (Simulated Home ISP Link - Connected to ISP-R1 G0/1 subnet)
+!
+
+interface GigabitEthernet0/0
+ description WAN_TO_ISP_CLOUD
+ ip address 192.0.2.30 255.255.255.0
+ ip nat outside
+ no shutdown
+exit
+
+!
+! LAN INTERFACE (Home Office Local Network)
+!
+
+interface GigabitEthernet0/1
+ description LAN_HOME_OFFICE
+ ip address 172.16.1.1 255.255.255.0
+ ip nat inside
+ no shutdown
+exit
+
+!
+! NAT OVERLOAD - WFH Home Network to Public Internet
+! Translates home LAN traffic (172.16.1.0/24) using the WAN IP
+!
+
+access-list 10 permit 172.16.1.0 0.0.0.255
+
+ip nat inside source list 10 interface GigabitEthernet0/0 overload
+
+!
+! DEFAULT ROUTE TO ISP CLOUD
+!
+
+ip route 0.0.0.0 0.0.0.0 192.0.2.1
+
+!
+! GRE TUNNEL INTERFACE - Simulated VPN Tunnel to HQ
+! This GRE tunnel simulates the Remote Access VPN connection
+! from the WFH employee to the HQ corporate network.
+!
+! Tunnel Source  : 192.0.2.30 (HOME-R1 WAN - simulated public IP)
+! Tunnel Dest    : 203.0.113.2 (HQ-R1 WAN - VPN headend)
+! Tunnel IP      : 10.30.0.2/30 (virtual tunnel address - HOME end)
+!
+
+interface Tunnel10
+ description GRE_VPN_TUNNEL_TO_HQ
+ ip address 10.30.0.2 255.255.255.252
+ tunnel source GigabitEthernet0/0
+ tunnel destination 203.0.113.2
+ no shutdown
+exit
+
+!
+! STATIC ROUTES OVER GRE TUNNEL
+! Route all HQ internal traffic through the GRE VPN tunnel
+!
+
+ip route 10.10.10.0 255.255.255.192 10.30.0.1
+ip route 10.10.20.0 255.255.255.192 10.30.0.1
+ip route 10.10.30.0 255.255.255.128 10.30.0.1
+ip route 10.10.40.0 255.255.255.224 10.30.0.1
+ip route 10.10.99.0 255.255.255.240 10.30.0.1
+ip route 10.10.100.0 255.255.255.240 10.30.0.1
+ip route 10.20.50.0 255.255.255.192 10.30.0.1
+ip route 10.20.60.0 255.255.255.224 10.30.0.1
+
+end
+write memory
+
